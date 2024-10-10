@@ -1,0 +1,13 @@
+{
+  "itallo": {
+    "name": "Itallo",
+    "gender": "male",
+    "age": 20
+  },
+
+  "jenny": {
+    "name": "Jennyfer",
+    "gender": "female",
+    "age": 18
+  }
+}
