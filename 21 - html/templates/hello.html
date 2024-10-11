@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hello</title>
+
+  <script>
+    showLoveMsg = () => 
+      document
+        .querySelector("#love-txt")
+        .innerHTML = "I love you {{ .Name }}" 
+  </script>
+
+</head>
+<body>
+
+  <main>
+    <h1>Hello {{ .Name }}</h1>
+    <p>Your gender is {{ .Gender }}</p>
+    <p>Your age is {{ .Age }}</p>
+  </main>
+
+  <section>
+    <button onclick="showLoveMsg()">Need Love?</button>
+    <p id="love-txt"></p>
+  </section>
+
+</body>
+</html>
