@@ -2,9 +2,13 @@ package routes
 
 import (
 	"LearnDB/database"
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
+
+	"github.com/gorilla/mux"
 )
 
 type user struct {
@@ -30,30 +34,109 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	// Insert operation
 	db, err := database.Connect()
 	if err != nil {
-		http.Error(w, "Unprocessable Entity", http.StatusInternalServerError)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
 	stmt, err := db.Prepare("INSERT INTO users (name, email) VALUES (?, ?)")
 	if err != nil {
-		http.Error(w, "Unprocessable Entity", http.StatusInternalServerError)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
 	res, err := stmt.Exec(user.Name, user.Email)
 	if err != nil {
-		http.Error(w, "Unprocessable Entity", http.StatusInternalServerError)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
 	user.Id, err = res.LastInsertId()
 	if err != nil {
-		http.Error(w, "Unprocessable Entity", http.StatusInternalServerError)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
 	// Send response
 	w.Header().Set("Location", fmt.Sprintf("/users/%d", user.Id))
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(user)
+
+	if err := json.NewEncoder(w).Encode(user); err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+}
+
+func GetUsers(w http.ResponseWriter, r *http.Request) {
+	// Get operation
+	db, err := database.Connect()
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	rows, err := db.Query("SELECT * FROM users")
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var users []user
+	var user user
+
+	for rows.Next() {
+		if err := rows.Scan(&user.Id, &user.Name, &user.Email); err != nil {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		users = append(users, user)
+	}
+
+	// Send response
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	if err := json.NewEncoder(w).Encode(users); err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+}
+
+func GetUser(w http.ResponseWriter, r *http.Request) {
+	// Get operation
+	id := mux.Vars(r)["id"]
+
+	db, err := database.Connect()
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	var user user
+
+	err = db.QueryRow("SELECT * FROM users WHERE id = ?", id).
+		Scan(&user.Id, &user.Name, &user.Email)
+
+	if err == sql.ErrNoRows {
+		http.Error(w, "Not Found", http.StatusNotFound)
+		return
+	}
+
+	if err != nil {
+		log.Fatal(err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	// Send response
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+
+	if err := json.NewEncoder(w).Encode(user); err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
 }
