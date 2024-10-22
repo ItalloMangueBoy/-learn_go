@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -17,7 +16,12 @@ type user struct {
 	Email string `json:"email"`
 }
 
-// Insert one user into database
+type changes struct {
+	Name  string `json:"name"`
+	Email string `json:"email"`
+}
+
+// CreateUser: Insert one user into database
 func CreateUser(w http.ResponseWriter, r *http.Request) {
 	// Read request body
 	var user user
@@ -67,6 +71,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetUsers: Select all users from database
 func GetUsers(w http.ResponseWriter, r *http.Request) {
 	// Get operation
 	db, err := database.Connect()
@@ -104,6 +109,7 @@ func GetUsers(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetUsers: Select one user from database through his id
 func GetUser(w http.ResponseWriter, r *http.Request) {
 	// Get operation
 	id := mux.Vars(r)["id"]
@@ -125,7 +131,6 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		log.Fatal(err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -138,5 +143,68 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
+}
 
+// UpdateUserUser: Select one user from database through his id and updates with given data
+func UpdateUser(w http.ResponseWriter, r *http.Request) {
+	// Get operation
+	id := mux.Vars(r)["id"]
+
+	db, err := database.Connect()
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	var user user
+
+	err = db.QueryRow("SELECT * FROM users WHERE id = ?", id).
+		Scan(&user.Id, &user.Name, &user.Email)
+
+	if err == sql.ErrNoRows {
+		http.Error(w, "Not Found", http.StatusNotFound)
+		return
+	}
+
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	// Read body
+	var changes changes
+
+	if err := json.NewDecoder(r.Body).Decode(&changes); err != nil {
+		http.Error(w, "Unprocessable Entity", http.StatusUnprocessableEntity)
+		return
+	}
+
+	if name := changes.Name; name != "" && len(name) < 50 && name != user.Name {
+		user.Name = name
+	}
+
+	if email := changes.Email; email != "" && len(email) < 50 && email != user.Email {
+		user.Email = email
+	}
+
+	// Update operation
+	stmt, err := db.Prepare("UPDATE users SET name = ?, email = ? WHERE id = ?")
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	if _, err := stmt.Exec(user.Name, user.Email, user.Id); err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	// Send response
+	w.Header().Set("Location", fmt.Sprintf("/users/%d", user.Id))
+	w.Header().Set("Content-Type", "application/json")
+
+	if err := json.NewEncoder(w).Encode(user); err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
 }
