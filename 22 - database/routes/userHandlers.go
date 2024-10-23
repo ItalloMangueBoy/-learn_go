@@ -145,7 +145,7 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// UpdateUserUser: Select one user from database through his id and updates with given data
+// UpdateUserUser: Select one user from database and updates this with given data
 func UpdateUser(w http.ResponseWriter, r *http.Request) {
 	// Get operation
 	id := mux.Vars(r)["id"]
@@ -201,10 +201,43 @@ func UpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	// Send response
 	w.Header().Set("Location", fmt.Sprintf("/users/%d", user.Id))
-	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusNoContent)
+}
 
-	if err := json.NewEncoder(w).Encode(user); err != nil {
+// DeleteUser: Select one user from database and deletes
+func DeleteUser(w http.ResponseWriter, r *http.Request) {
+	// Read body
+	id := mux.Vars(r)["id"]
+
+	// Delete operation
+	db, err := database.Connect()
+	if err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
+
+	stmt, err := db.Prepare("DELETE FROM users WHERE id = ?")
+	if err != nil {
+		return
+	}
+
+	res, err := stmt.Exec(id)
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	if rowsAffected == 0 {
+		http.Error(w, "Not Found", http.StatusNotFound)
+		return
+	}
+
+	// Send Response
+	w.WriteHeader(http.StatusNoContent)
 }
